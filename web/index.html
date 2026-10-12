@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f8fafc"><title>Realtime Chat</title>
+<style>
+:root{color-scheme:light;--ink:#172033;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:18px;background:#f1f5f9;color:var(--ink);font:16px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+.app{width:min(100%,720px);height:min(780px,calc(100vh - 36px));min-height:520px;display:flex;flex-direction:column;overflow:hidden;background:white;border:1px solid var(--line);border-radius:22px;box-shadow:0 20px 60px #0f172a12}
+header{padding:20px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}h1{font-size:1.15rem;margin:0;letter-spacing:-.02em}.sub{color:var(--muted);font-size:.85rem;margin-top:3px}
+.status{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:.8rem;white-space:nowrap}.dot{width:8px;height:8px;border-radius:50%;background:#f59e0b}.dot.online{background:#22c55e}
+.setup{display:flex;flex-wrap:wrap;gap:8px;padding:14px 18px;background:#f8fafc;border-bottom:1px solid var(--line)}input,button{font:inherit;border-radius:11px}input{min-width:0;padding:11px 12px;border:1px solid var(--line);outline:none}input:focus{border-color:#93c5fd;box-shadow:0 0 0 3px #dbeafe}.setup input{flex:1 1 120px}
+button{border:0;background:var(--accent);color:white;padding:11px 15px;font-weight:650;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}
+#messages{list-style:none;margin:0;padding:20px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px}li{max-width:88%;overflow-wrap:anywhere}li.message{align-self:flex-start;background:#f1f5f9;border-radius:4px 16px 16px 16px;padding:10px 13px}li.message.mine{align-self:flex-end;background:#dbeafe;border-radius:16px 4px 16px 16px}.meta{display:flex;gap:9px;align-items:center;margin-bottom:3px;font-size:.75rem;color:var(--muted)}.meta strong{color:#334155}.body{white-space:pre-wrap}li.system{align-self:center;max-width:100%;color:var(--muted);font-size:.78rem;text-align:center}
+.composer{padding:15px 18px;display:flex;gap:9px;border-top:1px solid var(--line)}#text{flex:1}.hint{padding:0 20px 12px;color:var(--muted);font-size:.75rem}
+@media(max-width:480px){body{padding:0}.app{width:100%;height:100dvh;min-height:0;border:0;border-radius:0}header{padding:16px}#messages{padding:14px}.setup{padding:12px}.composer{padding:12px}}
+</style></head>
+<body><main class="app">
+<header><div><h1>Realtime Chat</h1><div class="sub">Obrolan langsung, room per room.</div></div><div class="status"><span id="dot" class="dot"></span><span id="status">Belum terhubung</span></div></header>
+<form class="setup" id="setup"><input id="username" maxlength="24" placeholder="Nama kamu" aria-label="Nama kamu" value="Tamu"><input id="room" maxlength="32" placeholder="Nama room" aria-label="Nama room" value="umum"><button id="connect" type="submit">Hubungkan</button></form>
+<ul id="messages" aria-live="polite"></ul><div class="hint">Pesan hanya dibagikan kepada pengguna di room yang sama.</div>
+<form class="composer" id="composer"><input id="text" maxlength="1000" autocomplete="off" placeholder="Tulis pesan..." aria-label="Tulis pesan" disabled><button id="send" type="submit" disabled>Kirim</button></form>
+</main><script>
+(() => {
+const $=id=>document.getElementById(id);let socket;const messages=$('messages'),status=$('status'),dot=$('dot'),connectButton=$('connect'),textInput=$('text'),sendButton=$('send');
+function setConnected(connected,label){status.textContent=label;dot.classList.toggle('online',connected);textInput.disabled=!connected;sendButton.disabled=!connected;connectButton.disabled=connected}
+function addMessage(message){const li=document.createElement('li');if(message.type==='system'){li.className='system';li.textContent=message.text}else{li.className='message'+(message.username===$('username').value.trim()?' mine':'');const meta=document.createElement('div');meta.className='meta';const name=document.createElement('strong');name.textContent=message.username;const time=document.createElement('span');time.textContent=new Date(message.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});meta.append(name,time);const body=document.createElement('div');body.className='body';body.textContent=message.text;li.append(meta,body)}messages.appendChild(li);messages.scrollTop=messages.scrollHeight}
+$('setup').addEventListener('submit',event=>{event.preventDefault();if(socket&&socket.readyState===WebSocket.OPEN)return;const username=$('username').value.trim()||'Tamu',room=$('room').value.trim()||'umum',scheme=location.protocol==='https:'?'wss:':'ws:';socket=new WebSocket(`${scheme}//${location.host}/ws?username=${encodeURIComponent(username)}&room=${encodeURIComponent(room)}`);setConnected(false,'Menghubungkan…');socket.addEventListener('open',()=>setConnected(true,'Terhubung · '+room));socket.addEventListener('message',event=>{try{addMessage(JSON.parse(event.data))}catch{}});socket.addEventListener('close',()=>{setConnected(false,'Terputus');connectButton.disabled=false});socket.addEventListener('error',()=>{status.textContent='Koneksi bermasalah'})});
+$('composer').addEventListener('submit',event=>{event.preventDefault();const text=textInput.value.trim();if(!text||!socket||socket.readyState!==WebSocket.OPEN)return;socket.send(JSON.stringify({text}));textInput.value='';textInput.focus()});
+})();
+</script></body></html>
